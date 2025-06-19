@@ -343,7 +343,7 @@ grabItemsButton.MouseButton1Click:Connect(function()
         warn("Quantum Cloner alımı başarısız: ", result1)
     end
 
-    wait(5)
+    wait(3)
 
     local success2, result2 = pcall(function()
         return CoinsShopServiceRequestBuy:InvokeServer("Invisibility Cloak")
