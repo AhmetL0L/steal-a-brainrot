@@ -8,8 +8,8 @@ local JobId = game.JobId
 
 local targetBasePetNames = {
     "Los Tralaleritos",
-    "Odin Din Din Dun",
-    "Tralalero Tralala",
+--  "Odin Din Din Dun",
+--  "Tralalero Tralala",
     "La Vacca Saturno Saturnita",
     "Graipuss Medussi"
 }
