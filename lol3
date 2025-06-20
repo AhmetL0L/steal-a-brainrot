@@ -7,11 +7,11 @@ local PlaceId = game.PlaceId
 local JobId = game.JobId
 
 local targetBasePetNames = {
-    "Tralalero Tralala",
+--    "Tralalero Tralala",
     "Los Tralaleritos",
     "La Vacca Saturno Saturnita",
     "Graipuss Medussi",
-    "Odin Din Din Dun"
+ --   "Odin Din Din Dun"
 }
 
 local petPrefixes = {"", "Gold ", "Diamond ", "Bloodrot "}
