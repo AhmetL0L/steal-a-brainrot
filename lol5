@@ -12,7 +12,7 @@ local targetBasePetNames = {
 --  "Tralalero Tralala",
     "La Vacca Saturno Saturnita",
     "Graipuss Medussi",
-    "La Grande Combinazione" -- Yeni pet adı eklendi
+    "La Grande Combinasion" -- Yeni pet adı eklendi
 }
 
 local petPrefixes = {"", "Gold ", "Diamond ", "Bloodrot "}
@@ -162,7 +162,7 @@ local function updateObjectLocations()
                         highlight.FillTransparency = odinFillTransparency
                         highlight.OutlineColor = odinHighlightColor
                         highlight.OutlineTransparency = odinOutlineTransparency
-                    elseif string.find(obj.Name, "La Grande Combinazione") then -- Yeni pet için highlight ayarı
+                    elseif string.find(obj.Name, "La Grande Combinasion") then -- Yeni pet için highlight ayarı
                         highlight.FillColor = grandeCombinazioneHighlightColor
                         highlight.FillTransparency = grandeCombinazioneFillTransparency
                         highlight.OutlineColor = grandeCombinazioneHighlightColor
