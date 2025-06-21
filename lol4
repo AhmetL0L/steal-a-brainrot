@@ -1,0 +1,462 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local PlaceId = game.PlaceId
+local JobId = game.JobId
+
+local targetBasePetNames = {
+    "Los Tralaleritos",
+--  "Odin Din Din Dun",
+--  "Tralalero Tralala",
+    "La Vacca Saturno Saturnita",
+    "Graipuss Medussi",
+    "La Grande Combinazione" -- Added the new pet here
+}
+
+local petPrefixes = {"", "Gold ", "Diamond ", "Bloodrot "}
+
+local checkInterval = 5
+local maxDisplayLines = 50
+local lineHeight = 20
+local linePadding = 5
+
+local consoleOpenWidth = 400
+local consoleOpenHeight = 200
+local consoleClosedWidth = 100
+local consoleClosedHeight = 30
+
+local serverHopButtonWidth = 120
+local serverHopButtonHeight = 40
+local serverHopButtonPosX = 0.5
+local serverHopButtonOffsetFromCenter = 70
+local serverHopButtonPosY = 0
+local serverHopButtonOffsetFromTop = 10
+local serverHopRetryDelay = 3
+local maxServerHopWarningThreshold = 10
+local maxServerHopRetries = math.huge
+
+local toggleConsoleButtonWidth = 80
+local toggleConsoleButtonHeight = 30
+local toggleConsoleButtonPosX = 0
+local toggleConsoleButtonOffsetFromLeft = 10
+local toggleConsoleButtonPosY = 0
+local toggleConsoleButtonOffsetFromTop = 220
+
+local grabItemsButtonWidth = 120
+local grabItemsButtonHeight = 40
+local grabItemsButtonPosX = 0.5
+local grabItemsButtonOffsetFromCenter = -70
+local grabItemsButtonPosY = 0
+local grabItemsButtonOffsetFromTop = 10
+
+local tralaleroHighlightColor = Color3.fromRGB(0, 0, 255)
+local tralaleroFillTransparency = 0.2
+local tralaleroOutlineTransparency = 0
+
+local odinHighlightColor = Color3.fromRGB(255, 165, 0)
+local odinFillTransparency = 0.2
+local odinOutlineTransparency = 0
+
+local otherPetHighlightColor = Color3.fromRGB(255, 255, 0)
+local otherPetFillTransparency = 0.2
+local otherPetOutlineTransparency = 0
+
+-- New highlight color for "La Grande Combinazione" (Purple)
+local laGrandeCombinazioneHighlightColor = Color3.fromRGB(128, 0, 128)
+local laGrandeCombinazioneFillTransparency = 0.2
+local laGrandeCombinazioneOutlineTransparency = 0
+
+local activeHighlights = {}
+
+local locationDisplayGui = Instance.new("ScreenGui")
+locationDisplayGui.Name = "LocationDisplayGui"
+locationDisplayGui.DisplayOrder = 100
+locationDisplayGui.Parent = PlayerGui
+
+local displayFrame = Instance.new("Frame")
+displayFrame.Size = UDim2.new(0, consoleOpenWidth, 0, consoleOpenHeight)
+displayFrame.Position = UDim2.new(0, 10, 0, 10)
+displayFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+displayFrame.BackgroundTransparency = 0.7
+displayFrame.BorderSizePixel = 0
+displayFrame.ClipsDescendants = true
+displayFrame.Parent = locationDisplayGui
+
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(1, 0, 1, 0)
+scrollFrame.Position = UDim2.new(0, 0, 0, 0)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.BorderSizePixel = 0
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollFrame.VerticalScrollBarInset = Enum.ScrollBarInset.Always
+scrollFrame.Parent = displayFrame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.FillDirection = Enum.FillDirection.Vertical
+listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+listLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+listLayout.Padding = UDim.new(0, linePadding)
+listLayout.Parent = scrollFrame
+
+local activeLocationLabels = {}
+local isConsoleOpen = true
+
+local function clearAllHighlights()
+    for obj, highlightInstance in pairs(activeHighlights) do
+        if highlightInstance and highlightInstance.Parent then
+            highlightInstance:Destroy()
+        end
+    end
+    activeHighlights = {}
+end
+
+local function clearOldLabels()
+    for _, label in pairs(activeLocationLabels) do
+        if label.Parent then
+            label:Destroy()
+        end
+    end
+    activeLocationLabels = {}
+end
+
+local function updateObjectLocations()
+    clearOldLabels()
+    clearAllHighlights()
+    local foundObjectsCount = 0
+    local allObjects = game:GetDescendants()
+    
+    local foundGameLocations = {}
+    local foundReplicatedStorageNames = {}
+
+    local allPossiblePetNames = {}
+    for _, baseName in ipairs(targetBasePetNames) do
+        for _, prefix in ipairs(petPrefixes) do
+            allPossiblePetNames[prefix .. baseName] = true
+        end
+    end
+
+    for _, obj in ipairs(allObjects) do
+        if obj:IsA("Model") or obj:IsA("Part") then
+            if allPossiblePetNames[obj.Name] then
+                if string.find(obj:GetFullName(), "RainbowCountdown", 1, true) then
+                    print("Bulundu ancak hariç tutuldu (RainbowCountdown içinde): " .. obj:GetFullName())
+                    continue
+                end
+
+                if obj:IsDescendantOf(game.ReplicatedStorage) then
+                    foundReplicatedStorageNames[obj.Name] = true
+                else
+                    table.insert(foundGameLocations, obj:GetFullName())
+                    foundObjectsCount = foundObjectsCount + 1
+                    
+                    local highlight = Instance.new("Highlight")
+                    
+                    if string.find(obj.Name, "Tralalero Tralala") then
+                        highlight.FillColor = tralaleroHighlightColor
+                        highlight.FillTransparency = tralaleroFillTransparency
+                        highlight.OutlineColor = tralaleroHighlightColor
+                        highlight.OutlineTransparency = tralaleroOutlineTransparency
+                    elseif string.find(obj.Name, "Odin Din Din Dun") then
+                        highlight.FillColor = odinHighlightColor
+                        highlight.FillTransparency = odinFillTransparency
+                        highlight.OutlineColor = odinHighlightColor
+                        highlight.OutlineTransparency = odinOutlineTransparency
+                    -- Add condition for "La Grande Combinazione"
+                    elseif string.find(obj.Name, "La Grande Combinazione") then
+                        highlight.FillColor = laGrandeCombinazioneHighlightColor
+                        highlight.FillTransparency = laGrandeCombinazioneFillTransparency
+                        highlight.OutlineColor = laGrandeCombinazioneHighlightColor
+                        highlight.OutlineTransparency = laGrandeCombinazioneOutlineTransparency
+                    else
+                        highlight.FillColor = otherPetHighlightColor
+                        highlight.FillTransparency = otherPetFillTransparency
+                        highlight.OutlineColor = otherPetHighlightColor
+                        highlight.OutlineTransparency = otherPetOutlineTransparency
+                    end
+                    
+                    highlight.Parent = obj
+                    
+                    activeHighlights[obj] = highlight
+                end
+            end
+        end
+    end
+
+    local labelIndex = 1
+
+    for petName, _ in pairs(foundReplicatedStorageNames) do
+        if labelIndex > maxDisplayLines then break end
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 0, lineHeight)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextColor3 = Color3.new(0.5, 0.8, 1)
+        textLabel.Font = Enum.Font.SourceSans
+        textLabel.TextSize = 16
+        textLabel.TextXAlignment = Enum.TextXAlignment.Left
+        textLabel.TextYAlignment = Enum.TextYAlignment.Top
+        textLabel.TextWrapped = true
+        textLabel.Text = "Aranıyor: " .. petName
+        textLabel.Parent = scrollFrame
+        table.insert(activeLocationLabels, textLabel)
+        labelIndex = labelIndex + 1
+        print("ReplicatedStorage'da bulundu: " .. petName)
+    end
+
+    for i, locationPath in ipairs(foundGameLocations) do
+        if labelIndex > maxDisplayLines then break end
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 0, lineHeight)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextColor3 = Color3.new(1, 1, 1)
+        textLabel.Font = Enum.Font.SourceSans
+        textLabel.TextSize = 16
+        textLabel.TextXAlignment = Enum.TextXAlignment.Left
+        textLabel.TextYAlignment = Enum.TextYAlignment.Top
+        textLabel.TextWrapped = true
+        textLabel.Text = "Bulundu: " .. locationPath
+        textLabel.Parent = scrollFrame
+        table.insert(activeLocationLabels, textLabel)
+        labelIndex = labelIndex + 1
+        
+        print("Bulundu! Konum: " .. locationPath)
+    end
+
+    if foundObjectsCount == 0 and table.getn(foundReplicatedStorageNames) == 0 then
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 0, lineHeight)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextColor3 = Color3.new(1, 1, 1)
+        textLabel.Font = Enum.Font.SourceSansBold
+        textLabel.TextSize = 16
+        textLabel.TextXAlignment = Enum.TextXAlignment.Left
+        textLabel.TextYAlignment = Enum.TextYAlignment.Top
+        textLabel.Text = "Aranan petler bulunamadı."
+        textLabel.Parent = scrollFrame
+        table.insert(activeLocationLabels, textLabel)
+        
+        print("Aranan petler bulunamadı.")
+    end
+
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
+    scrollFrame.CanvasPosition = Vector2.new(0, 0)
+
+    return foundObjectsCount > 0 or table.getn(foundReplicatedStorageNames) > 0
+end
+
+local function serverHop()
+    local retryCount = 0
+    while true do
+        retryCount = retryCount + 1
+        
+        if retryCount > maxServerHopWarningThreshold then
+            print("UYARI: " .. maxServerHopWarningThreshold .. " denemedir uygun sunucu bulunamıyor. Denemeye devam ediliyor...")
+        end
+
+        print("Sunucu aranıyor... (Deneme " .. retryCount .. ")")
+        local servers = {}
+        
+        local successGet, reqResult = pcall(function()
+            return game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
+        end)
+        
+        local body = nil
+        if successGet then
+            local decodedSuccess, decodedBody = pcall(HttpService.JSONDecode, HttpService, reqResult)
+            if decodedSuccess then
+                body = decodedBody
+            else
+                print("Hata: JSON çözümleme başarısız oldu. " .. tostring(decodedBody))
+            end
+        else
+            print("Hata: Sunucu listesi alınamadı. " .. tostring(reqResult))
+        end
+
+        if body and body.data then
+            for i, v in next, body.data do
+                if type(v) == "table" and tonumber(v.playing) and tonumber(v.maxPlayers) and v.playing < v.maxPlayers and v.id ~= JobId then
+                    table.insert(servers, 1, v.id)
+                end
+            end
+        end
+
+        if #servers > 0 then
+            local targetServerId = servers[math.random(1, #servers)]
+            print("Yeni sunucu bulundu: " .. targetServerId .. ". Teleport olunuyor...")
+            
+            local successTeleport, errorMessage = pcall(function()
+                TeleportService:TeleportToPlaceInstance(PlaceId, targetServerId, Players.LocalPlayer)
+            end)
+
+            if successTeleport then
+                return true
+            else
+                print("Teleport hatası: " .. tostring(errorMessage))
+                wait(serverHopRetryDelay)
+            end
+        else
+            print("Uyarı: Hiç boş sunucu bulunamadı. Tekrar deneniyor...")
+            wait(serverHopRetryDelay)
+        end
+    end
+    print("Maksimum deneme sayısına ulaşıldı. Yeni uygun sunucu bulunamadı, teleport başarısız.")
+    return false
+end
+
+local serverHopButtonGui = Instance.new("ScreenGui")
+serverHopButtonGui.Name = "ServerHopButtonGui"
+serverHopButtonGui.DisplayOrder = 101
+serverHopButtonGui.Parent = PlayerGui
+
+local serverHopButton = Instance.new("TextButton")
+serverHopButton.Size = UDim2.new(0, serverHopButtonWidth, 0, serverHopButtonHeight)
+serverHopButton.Position = UDim2.new(serverHopButtonPosX, serverHopButtonOffsetFromCenter - (serverHopButtonWidth / 2), serverHopButtonPosY, serverHopButtonOffsetFromTop)
+serverHopButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+serverHopButton.TextColor3 = Color3.new(1, 1, 1)
+serverHopButton.TextScaled = true
+serverHopButton.Font = Enum.Font.SourceSansBold
+serverHopButton.Text = "Serverhop"
+serverHopButton.Parent = serverHopButtonGui
+
+serverHopButton.MouseButton1Click:Connect(function()
+    serverHopButton.Text = "Hoplanıyor..."
+    serverHopButton.Active = false
+    local successful = serverHop()
+    if not successful then
+        serverHopButton.Text = "Hoplanamadı!"
+        wait(2)
+        serverHopButton.Text = "Serverhop"
+        serverHopButton.Active = true
+    end
+end)
+
+local grabItemsButton = Instance.new("TextButton")
+grabItemsButton.Size = UDim2.new(0, grabItemsButtonWidth, 0, grabItemsButtonHeight)
+grabItemsButton.Position = UDim2.new(grabItemsButtonPosX, grabItemsButtonOffsetFromCenter - (grabItemsButtonWidth / 2), grabItemsButtonPosY, grabItemsButtonOffsetFromTop)
+grabItemsButton.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+grabItemsButton.TextColor3 = Color3.new(1, 1, 1)
+grabItemsButton.TextScaled = true
+grabItemsButton.Font = Enum.Font.SourceSansBold
+grabItemsButton.Text = "Eşyaları Al"
+grabItemsButton.Parent = serverHopButtonGui
+
+grabItemsButton.MouseButton1Click:Connect(function()
+    grabItemsButton.Text = "Alınıyor..."
+    grabItemsButton.Active = false
+
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Net = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Net")
+    local CoinsShopServiceRequestBuy = Net:WaitForChild("RF/CoinsShopService/RequestBuy")
+
+    local itemsToBuy = {
+        "Quantum Cloner",
+        "Invisibility Cloak",
+        "Medusa's Head" 
+    }
+
+    for i, itemName in ipairs(itemsToBuy) do
+        local success, result = pcall(function()
+            return CoinsShopServiceRequestBuy:InvokeServer(itemName)
+        end)
+
+        if success then
+            print(itemName .. " alımı başarılı: ", result)
+        else
+            warn(itemName .. " alımı başarısız: ", result)
+        end
+
+        task.wait(2) 
+    end
+
+    grabItemsButton.Text = "Tamamlandı!"
+    task.wait(2) 
+    grabItemsButton.Text = "Eşyaları Al"
+    grabItemsButton.Active = true
+end)
+
+
+local toggleConsoleButtonGui = Instance.new("ScreenGui")
+toggleConsoleButtonGui.Name = "ToggleConsoleButtonGui"
+toggleConsoleButtonGui.DisplayOrder = 102
+toggleConsoleButtonGui.Parent = PlayerGui
+
+local toggleConsoleButton = Instance.new("TextButton")
+toggleConsoleButton.Size = UDim2.new(0, toggleConsoleButtonWidth, 0, toggleConsoleButtonHeight)
+toggleConsoleButton.Position = UDim2.new(toggleConsoleButtonPosX, toggleConsoleButtonOffsetFromLeft, toggleConsoleButtonPosY, toggleConsoleButtonOffsetFromTop)
+toggleConsoleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+toggleConsoleButton.TextColor3 = Color3.new(1, 1, 1)
+toggleConsoleButton.TextScaled = true
+toggleConsoleButton.Font = Enum.Font.SourceSansBold
+toggleConsoleButton.Text = "Listeyi Kapat"
+toggleConsoleButton.Parent = toggleConsoleButtonGui
+
+toggleConsoleButton.MouseButton1Click:Connect(function()
+    isConsoleOpen = not isConsoleOpen
+    if isConsoleOpen then
+        displayFrame.Size = UDim2.new(0, consoleOpenWidth, 0, consoleOpenHeight)
+        displayFrame.BackgroundTransparency = 0.7
+        toggleConsoleButton.Text = "Listeyi Kapat"
+    else
+        displayFrame.Size = UDim2.new(0, consoleClosedWidth, 0, consoleClosedHeight)
+        displayFrame.BackgroundTransparency = 1
+        toggleConsoleButton.Text = "Listeyi Aç"
+    end
+end)
+
+local function isNumber(value)
+    return type(value) == "number"
+end
+
+local HumanModCons = {}
+
+local function loopspeed(args, speaker)
+    local speed = args[1] or 16
+    if isNumber(speed) then
+        local Char = speaker.Character or workspace:FindFirstChild(speaker.Name)
+        local Human = Char and Char:FindFirstChildWhichIsA("Humanoid")
+        local function WalkSpeedChange()
+            if Char and Human then
+                Human.WalkSpeed = speed
+            end
+        }
+        WalkSpeedChange()
+        if HumanModCons.wsLoop then HumanModCons.wsLoop:Disconnect() end
+        HumanModCons.wsLoop = Human:GetPropertyChangedSignal("WalkSpeed"):Connect(WalkSpeedChange)
+
+        if HumanModCons.wsCA then HumanModCons.wsCA:Disconnect() end
+        HumanModCons.wsCA = speaker.CharacterAdded:Connect(function(nChar)
+            Char, Human = nChar, nChar:WaitForChild("Humanoid")
+            WalkSpeedChange()
+            if HumanModCons.wsLoop then HumanModCons.wsLoop:Disconnect() end
+            HumanModCons.wsLoop = Human:GetPropertyChangedSignal("WalkSpeed"):Connect(WalkSpeedChange)
+        end)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(character)
+    character:WaitForChild("Humanoid")
+    loopspeed({45}, LocalPlayer)
+    print("Loopspeed automatically set to 45.")
+end)
+
+if LocalPlayer.Character then
+    local success, err = pcall(function()
+        LocalPlayer.Character:WaitForChild("Humanoid")
+        loopspeed({45}, LocalPlayer)
+        print("Loopspeed automatically set to 45 on initial character load.")
+    end)
+    if not success then
+        warn("Failed to set loopspeed on initial load:", err)
+    end
+end
+
+
+print("İlk pet araması öncesi bekleniyor... (" .. checkInterval .. " saniye)")
+wait(checkInterval)
+
+while true do
+    updateObjectLocations()
+    wait(checkInterval)
+end
