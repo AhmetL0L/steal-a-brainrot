@@ -15,7 +15,7 @@ local targetBasePetNames = {
     "La Grande Combinasion" -- Yeni pet adı eklendi
 }
 
-local petPrefixes = {"", "Gold ", "Diamond ", "Bloodrot "}
+local petPrefixes = {"", "Gold ", "Diamond ", "Rainbow ", "Bloodrot "}
 
 local checkInterval = 5
 local maxDisplayLines = 50
