@@ -435,15 +435,15 @@ end
 
 LocalPlayer.CharacterAdded:Connect(function(character)
     character:WaitForChild("Humanoid")
-    loopspeed({60}, LocalPlayer)
-    print("Loopspeed automatically set to 60.")
+    loopspeed({52}, LocalPlayer)
+    print("Loopspeed automatically set to 52.")
 end)
 
 if LocalPlayer.Character then
     local success, err = pcall(function()
         LocalPlayer.Character:WaitForChild("Humanoid")
-        loopspeed({60}, LocalPlayer)
-        print("Loopspeed automatically set to 60 on initial character load.")
+        loopspeed({52}, LocalPlayer)
+        print("Loopspeed automatically set to 52 on initial character load.")
     end)
     if not success then
         warn("Failed to set loopspeed on initial load:", err)
